@@ -14,10 +14,24 @@
   "contributes": {
     "commands": [
       {
-        "command": "codetyper.helloWorld",
-        "title": "Hello World"
+        "command": "codetyper.start",
+        "title": "CodeTyper: Start"
+      },
+      {
+        "command": "codetyper.stop",
+        "title": "CodeTyper: Stop"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CodeTyper",
+      "properties": {
+        "codetyper.templatesFolder": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to your templates folder (e.g. /home/user/cp-templates)"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",

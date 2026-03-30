@@ -1,26 +1,52 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import { TypingSession } from './session';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+let activeSession: TypingSession | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codetyper.start', async () => {
+      // Resolve templates folder: user setting or bundled
+      let folder = vscode.workspace.getConfiguration('codetyper').get<string>('templatesFolder');
+      if (!folder || !fs.existsSync(folder)) {
+        folder = path.join(context.extensionPath, 'templates');
+      }
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "codetyper" is now active!');
+      const files = fs.readdirSync(folder).filter(f => /\.(cpp|py|java|js|ts|c|go|rs)$/.test(f));
+      if (files.length === 0) {
+        vscode.window.showErrorMessage('CodeTyper: No templates found.');
+        return;
+      }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('codetyper.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from codetyper!');
-	});
+      const picked = await vscode.window.showQuickPick(files, { placeHolder: 'Pick a template' });
+      if (!picked) return;
 
-	context.subscriptions.push(disposable);
+      const targetCode = fs.readFileSync(path.join(folder, picked), 'utf8');
+
+      // Open a new untitled document with the same language
+      const ext = path.extname(picked).slice(1);
+      const langMap: Record<string, string> = { cpp: 'cpp', py: 'python', java: 'java', js: 'javascript', ts: 'typescript', c: 'c', go: 'go', rs: 'rust' };
+      const lang = langMap[ext] ?? 'plaintext';
+
+      const doc = await vscode.workspace.openTextDocument({ language: lang, content: '' });
+      const editor = await vscode.window.showTextDocument(doc);
+
+      activeSession?.dispose();
+      activeSession = new TypingSession(editor, targetCode);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codetyper.stop', () => {
+      activeSession?.dispose();
+      activeSession = undefined;
+      vscode.window.showInformationMessage('CodeTyper: Session stopped.');
+    })
+  );
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  activeSession?.dispose();
+}
