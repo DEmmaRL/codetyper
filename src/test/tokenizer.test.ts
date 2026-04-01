@@ -28,6 +28,10 @@ suite('Tokenizer', () => {
       assert.deepStrictEqual(vals('"hello world"'), ['"hello world"']);
     });
 
+    test('string with escape sequences is a single token', () => {
+      assert.deepStrictEqual(vals('"he said \\"hi\\""'), ['"he said \\"hi\\""']);
+    });
+
     test('char literal is a single token', () => {
       assert.deepStrictEqual(vals("'\\n'"), ["'\\n'"]);
     });
@@ -40,6 +44,22 @@ suite('Tokenizer', () => {
       assert.deepStrictEqual(vals('int /* comment */ x;'), ['int', 'x', ';']);
     });
 
+    test('block comment spanning multiple lines is skipped', () => {
+      assert.deepStrictEqual(vals('int /*\n  comment\n*/ x;'), ['int', 'x', ';']);
+    });
+
+    test('empty string returns no tokens', () => {
+      assert.deepStrictEqual(vals(''), []);
+    });
+
+    test('whitespace-only string returns no tokens', () => {
+      assert.deepStrictEqual(vals('   \n\t  '), []);
+    });
+
+    test('comment-only string returns no tokens', () => {
+      assert.deepStrictEqual(vals('// nothing'), []);
+    });
+
     test('offset is correct for range mapping', () => {
       const tokens = tokenize('int x = 0;');
       assert.strictEqual(tokens[0].offset, 0);  // 'int'
@@ -49,9 +69,36 @@ suite('Tokenizer', () => {
       assert.strictEqual(tokens[4].offset, 9);  // ';'
     });
 
+    test('token index is sequential from 0', () => {
+      const tokens = tokenize('a + b');
+      assert.deepStrictEqual(tokens.map(t => t.index), [0, 1, 2]);
+    });
+
+    test('calling tokenize twice gives consistent results (no lastIndex bug)', () => {
+      const first  = vals('int x;');
+      const second = vals('int x;');
+      assert.deepStrictEqual(first, second);
+    });
+
     test('real C++ snippet tokenizes correctly', () => {
-      const code = 'dist[src] = 0;';
-      assert.deepStrictEqual(vals(code), ['dist', '[', 'src', ']', '=', '0', ';']);
+      assert.deepStrictEqual(
+        vals('dist[src] = 0;'),
+        ['dist', '[', 'src', ']', '=', '0', ';']
+      );
+    });
+
+    test('dijkstra priority_queue line: >> is one token (user must type >> not > >)', () => {
+      assert.deepStrictEqual(
+        vals('priority_queue<pair<int,int>, vector<pair<int,int>>, greater<>> pq;'),
+        ['priority_queue', '<', 'pair', '<', 'int', ',', 'int', '>', ',',
+         'vector', '<', 'pair', '<', 'int', ',', 'int', '>>', ',',
+         'greater', '<', '>>', 'pq', ';']
+      );
+    });
+
+    test('structured binding tokenizes correctly', () => {
+      assert.deepStrictEqual(vals('auto [d, u] = pq.top();'),
+        ['auto', '[', 'd', ',', 'u', ']', '=', 'pq', '.', 'top', '(', ')', ';']);
     });
 
   });
@@ -93,6 +140,29 @@ suite('Tokenizer', () => {
       assert.strictEqual(errors.length, 1);
       assert.strictEqual(errors[0].expected, ';');
       assert.strictEqual(errors[0].got, '');
+    });
+
+    test('empty vs empty has no errors', () => {
+      assert.deepStrictEqual(compareTokens([], []), []);
+    });
+
+    test('empty target with typed tokens reports all as errors', () => {
+      const typed = tokenize('int x;');
+      const errors = compareTokens([], typed);
+      assert.strictEqual(errors.length, 3);
+    });
+
+    test('tokenIndex in error matches position in array', () => {
+      const target = tokenize('a b c');
+      const typed  = tokenize('a X c');
+      const errors = compareTokens(target, typed);
+      assert.strictEqual(errors[0].tokenIndex, 1);
+    });
+
+    test('multiple errors are all reported', () => {
+      const target = tokenize('a b c');
+      const typed  = tokenize('X Y Z');
+      assert.strictEqual(compareTokens(target, typed).length, 3);
     });
 
   });
