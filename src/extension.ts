@@ -62,6 +62,20 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('codetyper.toggleBlind', () => {
+      if (!activeSession) { vscode.window.showErrorMessage('CodeTyper: No active session.'); return; }
+      activeSession.toggleBlind();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codetyper.togglePreview', async () => {
+      if (!activeSession) { vscode.window.showErrorMessage('CodeTyper: No active session.'); return; }
+      await activeSession.togglePreview();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('codetyper.history', () => {
       const history = getHistory(context);
       if (history.length === 0) {
@@ -87,8 +101,12 @@ async function startSession(templatePath: string, context: vscode.ExtensionConte
   };
   const lang = langMap[ext] ?? 'plaintext';
 
+  const config = vscode.workspace.getConfiguration('codetyper');
+  const blindMode = config.get<string>('defaultMode') === 'blind';
+  const showPreview = config.get<boolean>('showPreview') ?? true;
+
   const doc = await vscode.workspace.openTextDocument({ language: lang, content: '' });
-  const editor = await vscode.window.showTextDocument(doc);
+  const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
 
   activeSession?.dispose();
   activeSession = new TypingSession(editor, targetCode, (wpm, errors, seconds) => {
@@ -97,7 +115,7 @@ async function startSession(templatePath: string, context: vscode.ExtensionConte
       wpm, errors, seconds,
       date: new Date().toISOString()
     });
-  });
+  }, blindMode, showPreview);
   lastTemplatePath = templatePath;
 }
 

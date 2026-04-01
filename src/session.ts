@@ -20,19 +20,30 @@ export class TypingSession {
   private statusBar: vscode.StatusBarItem;
   private onComplete: (wpm: number, errors: number, seconds: number) => void;
 
+  /** Whether ghost text and color highlights are hidden (blind mode). */
+  private blindMode: boolean;
+  /** The read-only preview editor showing the template, if open. */
+  private previewEditor: vscode.TextEditor | undefined;
+
   /** Timestamp of the first keystroke; undefined until typing begins. */
   private startTime: number | undefined;
 
   constructor(
     editor: vscode.TextEditor,
     targetCode: string,
-    onComplete: (wpm: number, errors: number, seconds: number) => void = () => {}
+    onComplete: (wpm: number, errors: number, seconds: number) => void = () => {},
+    blindMode = false,
+    showPreview = true
   ) {
     this.editor = editor;
     this.targetCode = targetCode;
     this.onComplete = onComplete;
+    this.blindMode = blindMode;
+
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     this.statusBar.show();
+
+    if (showPreview) { this._openPreview(); }
 
     this._updateDecorations();
 
@@ -42,18 +53,59 @@ export class TypingSession {
           this._updateDecorations();
         }
       }),
-      // Stop session if user switches away from the session document
-      vscode.window.onDidChangeActiveTextEditor(editor => {
-        if (editor?.document !== this.editor.document) {
+      vscode.window.onDidChangeActiveTextEditor(active => {
+        if (active?.document !== this.editor.document &&
+            active?.document !== this.previewEditor?.document) {
           this.dispose();
         }
       })
     );
   }
 
+  /** Toggle blind mode on/off during an active session. */
+  toggleBlind() {
+    this.blindMode = !this.blindMode;
+    this._updateDecorations();
+    vscode.window.setStatusBarMessage(
+      `CodeTyper: ${this.blindMode ? '🙈 Blind mode ON' : '👁 Ghost mode ON'}`, 2000
+    );
+  }
+
+  /** Toggle the preview panel on/off during an active session. */
+  async togglePreview() {
+    if (this.previewEditor) {
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      this.previewEditor = undefined;
+      await vscode.window.showTextDocument(this.editor.document);
+    } else {
+      await this._openPreview();
+      await vscode.window.showTextDocument(this.editor.document);
+    }
+  }
+
+  private async _openPreview() {
+    const doc = await vscode.workspace.openTextDocument({
+      language: this.editor.document.languageId,
+      content: this.targetCode
+    });
+    // Open to the right, read-only
+    this.previewEditor = await vscode.window.showTextDocument(doc, {
+      viewColumn: vscode.ViewColumn.Beside,
+      preserveFocus: true,
+      preview: true
+    });
+    // Mark as read-only via a setting override isn't possible directly,
+    // but we can prevent edits by listening and reverting
+    this.disposables.push(
+      vscode.workspace.onDidChangeTextDocument(e => {
+        if (e.document === this.previewEditor?.document) {
+          vscode.commands.executeCommand('undo');
+        }
+      })
+    );
+  }
+
   private _updateDecorations() {
-    // Only compare text up to the cursor position to avoid auto-closed pairs
-    // (e.g. editor inserts ')' automatically when user types '(') causing false errors.
     const cursor = this.editor.selection.active;
     const cursorOffset = this.editor.document.offsetAt(cursor);
     const typed = this.editor.document.getText().slice(0, cursorOffset);
@@ -62,64 +114,69 @@ export class TypingSession {
     const errors = compareTokens(targetTokens, typedTokens);
     const errorSet = new Set(errors.map(e => e.tokenIndex));
 
-    const errorRanges: vscode.Range[] = [];
-    const okRanges: vscode.Range[] = [];
+    if (this.blindMode) {
+      // Clear all visual decorations in blind mode
+      this.editor.setDecorations(errorDecoration, []);
+      this.editor.setDecorations(okDecoration, []);
+      this.editor.setDecorations(ghostDecoration, []);
+    } else {
+      const errorRanges: vscode.Range[] = [];
+      const okRanges: vscode.Range[] = [];
 
-    for (const token of typedTokens) {
-      const start = this.editor.document.positionAt(token.offset);
-      const end = this.editor.document.positionAt(token.offset + token.value.length);
-      const range = new vscode.Range(start, end);
-      if (errorSet.has(token.index)) {
-        errorRanges.push(range);
-      } else {
-        okRanges.push(range);
-      }
-    }
-
-    this.editor.setDecorations(errorDecoration, errorRanges);
-    this.editor.setDecorations(okDecoration, okRanges);
-
-    // Ghost text: token-aware — show remaining target content from the current/next untyped token.
-    const ghostDecorations: vscode.DecorationOptions[] = [];
-
-    const lastTypedToken = typedTokens[typedTokens.length - 1];
-    const correspondingTarget = targetTokens[typedTokens.length - 1];
-    const isMidToken = lastTypedToken &&
-      correspondingTarget &&
-      correspondingTarget.value.startsWith(lastTypedToken.value) &&
-      correspondingTarget.value !== lastTypedToken.value;
-
-    const ghostFromTokenIdx = isMidToken ? typedTokens.length - 1 : typedTokens.length;
-    const ghostFromCharOffset = isMidToken
-      ? correspondingTarget.offset + lastTypedToken.value.length
-      : targetTokens[ghostFromTokenIdx]?.offset;
-
-    if (ghostFromCharOffset !== undefined && targetTokens[ghostFromTokenIdx]) {
-      const targetLines = this.targetCode.split('\n');
-      let charCount = 0;
-      let targetLineIdx = 0;
-      for (let i = 0; i < targetLines.length; i++) {
-        if (charCount + targetLines[i].length >= ghostFromCharOffset) {
-          targetLineIdx = i;
-          break;
+      for (const token of typedTokens) {
+        const start = this.editor.document.positionAt(token.offset);
+        const end = this.editor.document.positionAt(token.offset + token.value.length);
+        const range = new vscode.Range(start, end);
+        if (errorSet.has(token.index)) {
+          errorRanges.push(range);
+        } else {
+          okRanges.push(range);
         }
-        charCount += targetLines[i].length + 1;
       }
-      const remaining = this.targetCode.slice(ghostFromCharOffset, charCount + targetLines[targetLineIdx].length);
-      if (remaining.trim()) {
-        const docLine = this.editor.document.lineAt(this.editor.document.lineCount - 1).lineNumber;
-        const pos = this.editor.document.lineAt(docLine).range.end;
-        ghostDecorations.push({ range: new vscode.Range(pos, pos), renderOptions: { after: { contentText: remaining } } });
-      }
-    }
 
-    this.editor.setDecorations(ghostDecoration, ghostDecorations);
+      this.editor.setDecorations(errorDecoration, errorRanges);
+      this.editor.setDecorations(okDecoration, okRanges);
+
+      // Ghost text: token-aware
+      const ghostDecorations: vscode.DecorationOptions[] = [];
+      const lastTypedToken = typedTokens[typedTokens.length - 1];
+      const correspondingTarget = targetTokens[typedTokens.length - 1];
+      const isMidToken = lastTypedToken &&
+        correspondingTarget &&
+        correspondingTarget.value.startsWith(lastTypedToken.value) &&
+        correspondingTarget.value !== lastTypedToken.value;
+
+      const ghostFromTokenIdx = isMidToken ? typedTokens.length - 1 : typedTokens.length;
+      const ghostFromCharOffset = isMidToken
+        ? correspondingTarget.offset + lastTypedToken.value.length
+        : targetTokens[ghostFromTokenIdx]?.offset;
+
+      if (ghostFromCharOffset !== undefined && targetTokens[ghostFromTokenIdx]) {
+        const targetLines = this.targetCode.split('\n');
+        let charCount = 0;
+        let targetLineIdx = 0;
+        for (let i = 0; i < targetLines.length; i++) {
+          if (charCount + targetLines[i].length >= ghostFromCharOffset) {
+            targetLineIdx = i;
+            break;
+          }
+          charCount += targetLines[i].length + 1;
+        }
+        const remaining = this.targetCode.slice(ghostFromCharOffset, charCount + targetLines[targetLineIdx].length);
+        if (remaining.trim()) {
+          const docLine = this.editor.document.lineAt(this.editor.document.lineCount - 1).lineNumber;
+          const pos = this.editor.document.lineAt(docLine).range.end;
+          ghostDecorations.push({ range: new vscode.Range(pos, pos), renderOptions: { after: { contentText: remaining } } });
+        }
+      }
+
+      this.editor.setDecorations(ghostDecoration, ghostDecorations);
+    }
 
     const done = typedTokens.length;
     const total = targetTokens.length;
     const errCount = errors.length;
 
-    // Start timer on first keystroke
     if (done > 0 && this.startTime === undefined) {
       this.startTime = Date.now();
     }
@@ -127,9 +184,10 @@ export class TypingSession {
     const targetLines = this.targetCode.split('\n');
     const currentLineIndex = typed.split('\n').length - 1;
     const nextLine = targetLines[currentLineIndex + 1];
-    const nextLineHint = nextLine !== undefined ? `  ↵ ${nextLine.trim()}` : '';
+    const nextLineHint = !this.blindMode && nextLine !== undefined ? `  ↵ ${nextLine.trim()}` : '';
+    const modeIcon = this.blindMode ? ' 🙈' : '';
 
-    this.statusBar.text = `CodeTyper: ${done}/${total} tokens | errors: ${errCount} | ${this._wpm(typed)}${nextLineHint}`;
+    this.statusBar.text = `CodeTyper${modeIcon}: ${done}/${total} tokens | errors: ${errCount} | ${this._wpm(typed)}${nextLineHint}`;
 
     if (done >= total && errCount === 0) {
       this._showSummary(typed, done, errCount);
@@ -137,11 +195,9 @@ export class TypingSession {
     }
   }
 
-  /** Returns a formatted WPM string, or '-- wpm' if not started yet. */
   private _wpm(typed: string): string {
     if (!this.startTime) { return '-- wpm'; }
     const minutes = (Date.now() - this.startTime) / 60000;
-    // Standard WPM: non-whitespace chars typed / 5 / minutes
     const chars = typed.replace(/\s+/g, '').length;
     return `${Math.round(chars / 5 / minutes)} wpm`;
   }

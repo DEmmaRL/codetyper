@@ -28,11 +28,30 @@
       {
         "command": "codetyper.history",
         "title": "CodeTyper: History"
+      },
+      {
+        "command": "codetyper.toggleBlind",
+        "title": "CodeTyper: Toggle Blind Mode"
+      },
+      {
+        "command": "codetyper.togglePreview",
+        "title": "CodeTyper: Toggle Preview"
       }
     ],
     "configuration": {
       "title": "CodeTyper",
       "properties": {
+        "codetyper.defaultMode": {
+          "type": "string",
+          "enum": ["ghost", "blind"],
+          "default": "ghost",
+          "description": "Default typing mode: 'ghost' shows hints and highlights, 'blind' hides them"
+        },
+        "codetyper.showPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the template in a side panel when a session starts"
+        },
         "codetyper.maxHistory": {
           "type": "number",
           "default": 1000,
