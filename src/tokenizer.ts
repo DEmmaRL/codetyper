@@ -21,6 +21,8 @@ export interface Token {
   index: number;
   /** Character offset in the source string (used for range mapping). */
   offset: number;
+  /** Zero-based line number in the source string. */
+  line: number;
 }
 
 export interface DiffResult {
@@ -40,22 +42,23 @@ const CPP_TOKEN_SOURCE =
  */
 export function tokenize(code: string): Token[] {
   const tokens: Token[] = [];
-  // Create a fresh regex each call to avoid shared lastIndex state
   const re = new RegExp(CPP_TOKEN_SOURCE.source, 'g');
   let match: RegExpExecArray | null;
   let index = 0;
   while ((match = re.exec(code)) !== null) {
-    // Skip comments (groups 1 & 2 in the alternation)
     if (match[0].startsWith('//') || match[0].startsWith('/*')) { continue; }
-    tokens.push({ value: match[0], index: index++, offset: match.index });
+    const line = code.slice(0, match.index).split('\n').length - 1;
+    tokens.push({ value: match[0], index: index++, offset: match.index, line });
   }
   return tokens;
 }
 
 /**
  * Compares typed tokens against target tokens position by position.
- * Extra tokens typed beyond the target length are also reported as errors.
- * Returns an array of mismatches; empty array means perfect match.
+ *
+ * In addition to token value mismatches, enforces that preprocessor directive
+ * tokens (#define, #include, etc.) are not split across lines in the typed text,
+ * since newlines are semantically significant for preprocessor directives in C++.
  */
 export function compareTokens(target: Token[], typed: Token[]): DiffResult[] {
   const errors: DiffResult[] = [];
@@ -65,8 +68,31 @@ export function compareTokens(target: Token[], typed: Token[]): DiffResult[] {
     const u = typed[i]?.value;
     if (t !== u) {
       errors.push({ tokenIndex: i, expected: t ?? '', got: u ?? '' });
+      continue;
+    }
+
+    // Check that preprocessor directive tokens aren't split across lines.
+    // A directive starts with '#' — all tokens on that target line must stay
+    // on the same line in the typed text.
+    if (typed[i] && target[i]) {
+      const directiveStart = findDirectiveStart(target, i);
+      if (directiveStart !== -1 && typed[i].line !== typed[directiveStart].line) {
+        errors.push({ tokenIndex: i, expected: t ?? '', got: `(newline in preprocessor directive)` });
+      }
     }
   }
   return errors;
+}
+
+/**
+ * If token at `idx` belongs to a preprocessor directive line (a line whose
+ * first token is '#'), returns the index of the '#' token. Otherwise -1.
+ */
+function findDirectiveStart(tokens: Token[], idx: number): number {
+  const line = tokens[idx].line;
+  // Find the first token on this line
+  let start = idx;
+  while (start > 0 && tokens[start - 1].line === line) { start--; }
+  return tokens[start].value === '#' ? start : -1;
 }
 

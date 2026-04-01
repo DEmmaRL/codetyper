@@ -148,6 +148,19 @@ suite('Tokenizer', () => {
       assert.strictEqual(errors[0].got, '');
     });
 
+    test('splitting a preprocessor directive across lines is an error', () => {
+      const target = tokenize('#define X 1');
+      const typed  = tokenize('#define X\n1'); // user pressed Enter before '1'
+      const errors = compareTokens(target, typed);
+      assert.ok(errors.length > 0, 'expected an error for newline inside #define');
+    });
+
+    test('preprocessor directive on correct single line has no errors', () => {
+      const target = tokenize('#define X 1');
+      const typed  = tokenize('#define X 1');
+      assert.deepStrictEqual(compareTokens(target, typed), []);
+    });
+
     test('empty vs empty has no errors', () => {
       assert.deepStrictEqual(compareTokens([], []), []);
     });
