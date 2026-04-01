@@ -161,6 +161,13 @@ suite('Tokenizer', () => {
       assert.deepStrictEqual(compareTokens(target, typed), []);
     });
 
+    test('two directives on the same line is an error', () => {
+      const target = tokenize('#include <bits/stdc++.h>\n#define X 1');
+      const typed  = tokenize('#include <bits/stdc++.h>#define X 1'); // missing newline between
+      const errors = compareTokens(target, typed);
+      assert.ok(errors.length > 0, 'expected an error for missing newline between directives');
+    });
+
     test('empty vs empty has no errors', () => {
       assert.deepStrictEqual(compareTokens([], []), []);
     });

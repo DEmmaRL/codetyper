@@ -54,45 +54,62 @@ export function tokenize(code: string): Token[] {
 }
 
 /**
+ * For each token index that belongs to a preprocessor directive, maps it to
+ * the index of the '#' token that starts that directive.
+ * O(n) — avoids repeated linear scans in compareTokens.
+ */
+function buildDirectiveMap(tokens: Token[]): Map<number, number> {
+  const result = new Map<number, number>();
+  let i = 0;
+  while (i < tokens.length) {
+    const lineStart = i;
+    const line = tokens[i].line;
+    while (i < tokens.length && tokens[i].line === line) { i++; }
+    if (tokens[lineStart].value === '#') {
+      for (let j = lineStart; j < i; j++) { result.set(j, lineStart); }
+    }
+  }
+  return result;
+}
+
+/**
  * Compares typed tokens against target tokens position by position.
  *
- * In addition to token value mismatches, enforces that preprocessor directive
- * tokens (#define, #include, etc.) are not split across lines in the typed text,
- * since newlines are semantically significant for preprocessor directives in C++.
+ * Two kinds of errors are reported:
+ *   1. Value mismatch — typed token differs from target token
+ *   2. Preprocessor line violation:
+ *      - A directive was split across lines (newline inside directive)
+ *      - Two directives were merged onto the same line (missing newline between)
  */
 export function compareTokens(target: Token[], typed: Token[]): DiffResult[] {
   const errors: DiffResult[] = [];
+  // Map from token index → index of its directive's '#' (only for directive tokens)
+  const directiveMap = buildDirectiveMap(target);
   const len = Math.max(target.length, typed.length);
+
   for (let i = 0; i < len; i++) {
     const t = target[i]?.value;
     const u = typed[i]?.value;
+
     if (t !== u) {
       errors.push({ tokenIndex: i, expected: t ?? '', got: u ?? '' });
       continue;
     }
 
-    // Check that preprocessor directive tokens aren't split across lines.
-    // A directive starts with '#' — all tokens on that target line must stay
-    // on the same line in the typed text.
-    if (typed[i] && target[i]) {
-      const directiveStart = findDirectiveStart(target, i);
-      if (directiveStart !== -1 && typed[i].line !== typed[directiveStart].line) {
-        errors.push({ tokenIndex: i, expected: t ?? '', got: `(newline in preprocessor directive)` });
-      }
+    const hashIdx = directiveMap.get(i);
+    if (hashIdx === undefined || !typed[i]) { continue; }
+
+    // Rule 1: all tokens in a directive must be on the same typed line as its '#'
+    if (typed[i].line !== typed[hashIdx].line) {
+      errors.push({ tokenIndex: i, expected: t, got: '(newline inside preprocessor directive)' });
+      continue;
+    }
+
+    // Rule 2: a '#' starting a directive must be on a different line than the previous token
+    if (i === hashIdx && i > 0 && typed[i - 1] && typed[i].line === typed[i - 1].line) {
+      errors.push({ tokenIndex: i, expected: t, got: '(missing newline before preprocessor directive)' });
     }
   }
   return errors;
-}
-
-/**
- * If token at `idx` belongs to a preprocessor directive line (a line whose
- * first token is '#'), returns the index of the '#' token. Otherwise -1.
- */
-function findDirectiveStart(tokens: Token[], idx: number): number {
-  const line = tokens[idx].line;
-  // Find the first token on this line
-  let start = idx;
-  while (start > 0 && tokens[start - 1].line === line) { start--; }
-  return tokens[start].value === '#' ? start : -1;
 }
 
