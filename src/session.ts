@@ -73,7 +73,7 @@ export class TypingSession {
     this.blindMode = !this.blindMode;
     this._updateDecorations();
     vscode.window.setStatusBarMessage(
-      `CodeTyper: ${this.blindMode ? '🙈 Blind mode ON' : '👁 Ghost mode ON'}`, 2000
+      `CodeTyper: ${this.blindMode ? '[blind] Blind mode ON' : '[ghost] Ghost mode ON'}`, 2000
     );
   }
 
@@ -189,8 +189,8 @@ export class TypingSession {
     const targetLines = this.targetCode.split('\n');
     const currentLineIndex = typed.split('\n').length - 1;
     const nextLine = targetLines[currentLineIndex + 1];
-    const nextLineHint = !this.blindMode && nextLine !== undefined ? `  ↵ ${nextLine.trim()}` : '';
-    const modeIcon = this.blindMode ? ' 🙈' : '';
+    const nextLineHint = !this.blindMode && nextLine !== undefined ? `  -> ${nextLine.trim()}` : '';
+    const modeIcon = this.blindMode ? ' [blind]' : '';
 
     this.statusBar.text = `CodeTyper${modeIcon}: ${done}/${total} tokens | errors: ${errCount} | ${this._wpm(typed)}${nextLineHint}`;
 
@@ -217,7 +217,7 @@ export class TypingSession {
     const chars = typed.replace(/\s+/g, '').length;
     const wpm = Math.round(chars / 5 / (elapsed / 60));
     vscode.window.showInformationMessage(
-      `CodeTyper ✓  ${totalTokens} tokens | ${wpm} wpm | ${errors} errors | ${mins}:${secs}`
+      `CodeTyper done: ${totalTokens} tokens | ${wpm} wpm | ${errors} errors | ${mins}:${secs}`
     );
     this.onComplete(wpm, errors, Math.round(elapsed));
   }

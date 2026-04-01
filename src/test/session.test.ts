@@ -30,13 +30,13 @@ suite('TypingSession', () => {
     const editor = await openEditor();
     const session = new TypingSession(editor, 'int x;', () => {}, false);
     const bar = (session as unknown as { statusBar: vscode.StatusBarItem }).statusBar;
-    assert.ok(!bar.text.includes('🙈'), 'should start without blind icon');
+    assert.ok(!bar.text.includes('[blind]'), 'should start without blind icon');
     session.toggleBlind();
     update(session);
-    assert.ok(bar.text.includes('🙈'), 'should show blind icon after toggle');
+    assert.ok(bar.text.includes('[blind]'), 'should show blind icon after toggle');
     session.toggleBlind();
     update(session);
-    assert.ok(!bar.text.includes('🙈'), 'should remove blind icon after toggle back');
+    assert.ok(!bar.text.includes('[blind]'), 'should remove blind icon after toggle back');
     session.dispose();
   });
 
