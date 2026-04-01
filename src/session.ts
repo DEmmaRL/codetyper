@@ -63,17 +63,43 @@ export class TypingSession {
     this.editor.setDecorations(errorDecoration, errorRanges);
     this.editor.setDecorations(okDecoration, okRanges);
 
-    // Ghost text: only show remainder of current line
-    const typedLines = typed.split('\n');
-    const currentLineIndex = typedLines.length - 1;
-    const targetLines = this.targetCode.split('\n');
+    // Ghost text: token-aware — show remaining target content from the current/next untyped token.
+    // If the user is mid-token, show the remainder of that token + rest of the line.
+    // If they just finished a token (or haven't started), show from the next token onward.
     const ghostDecorations: vscode.DecorationOptions[] = [];
 
-    if (currentLineIndex < targetLines.length) {
-      const typedCurrentLine = typedLines[currentLineIndex] ?? '';
-      const remaining = targetLines[currentLineIndex].slice(typedCurrentLine.length);
-      if (remaining) {
-        const pos = this.editor.document.lineAt(Math.min(currentLineIndex, this.editor.document.lineCount - 1)).range.end;
+    // Determine if the last typed token is a partial match of the corresponding target token
+    const lastTypedToken = typedTokens[typedTokens.length - 1];
+    const correspondingTarget = targetTokens[typedTokens.length - 1];
+    const isMidToken = lastTypedToken &&
+      correspondingTarget &&
+      correspondingTarget.value.startsWith(lastTypedToken.value) &&
+      correspondingTarget.value !== lastTypedToken.value;
+
+    const ghostFromTokenIdx = isMidToken ? typedTokens.length - 1 : typedTokens.length;
+    const ghostFromCharOffset = isMidToken
+      ? correspondingTarget.offset + lastTypedToken.value.length  // skip already-typed part
+      : targetTokens[ghostFromTokenIdx]?.offset;
+
+    if (ghostFromCharOffset !== undefined && targetTokens[ghostFromTokenIdx]) {
+      // Find which line in the target this offset lives on
+      const targetLines = this.targetCode.split('\n');
+      let charCount = 0;
+      let targetLineIdx = 0;
+      for (let i = 0; i < targetLines.length; i++) {
+        if (charCount + targetLines[i].length >= ghostFromCharOffset) {
+          targetLineIdx = i;
+          break;
+        }
+        charCount += targetLines[i].length + 1; // +1 for \n
+      }
+
+      const lineStart = charCount;
+      const remaining = this.targetCode.slice(ghostFromCharOffset, lineStart + targetLines[targetLineIdx].length);
+
+      if (remaining.trim()) {
+        const docLine = this.editor.document.lineAt(this.editor.document.lineCount - 1).lineNumber;
+        const pos = this.editor.document.lineAt(docLine).range.end;
         ghostDecorations.push({ range: new vscode.Range(pos, pos), renderOptions: { after: { contentText: remaining } } });
       }
     }
@@ -81,6 +107,8 @@ export class TypingSession {
     this.editor.setDecorations(ghostDecoration, ghostDecorations);
 
     // Show next line preview in status bar
+    const targetLines = this.targetCode.split('\n');
+    const currentLineIndex = typed.split('\n').length - 1;
     const nextLine = targetLines[currentLineIndex + 1];
     const nextLineHint = nextLine !== undefined ? `  ↵ ${nextLine.trim()}` : '';
 
