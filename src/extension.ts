@@ -17,7 +17,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('codetyper.start', async () => {
       // Resolve templates folder: user setting or bundled
       let folder = vscode.workspace.getConfiguration('codetyper').get<string>('templatesFolder');
-      if (!folder || !fs.existsSync(folder)) {
+      if (folder) {
+        try {
+          if (!fs.statSync(folder).isDirectory()) {
+            vscode.window.showErrorMessage(`CodeTyper: templatesFolder "${folder}" is not a directory.`);
+            folder = path.join(context.extensionPath, 'templates');
+          }
+        } catch {
+          vscode.window.showWarningMessage(`CodeTyper: templatesFolder "${folder}" not found. Using defaults.`);
+          folder = path.join(context.extensionPath, 'templates');
+        }
+      } else {
         folder = path.join(context.extensionPath, 'templates');
       }
 
