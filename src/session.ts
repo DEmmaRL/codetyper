@@ -48,43 +48,47 @@ export class TypingSession {
     const errorRanges: vscode.Range[] = [];
     const okRanges: vscode.Range[] = [];
 
-    // Map typed tokens back to ranges in the document
-    const text = typed;
-    const tokenRegex = /\S+/g;
-    let match: RegExpExecArray | null;
-    let ti = 0;
-    while ((match = tokenRegex.exec(text)) !== null) {
-      const start = this.editor.document.positionAt(match.index);
-      const end = this.editor.document.positionAt(match.index + match[0].length);
+    // Map typed tokens back to ranges using the same tokenizer (keeps indices in sync)
+    for (const token of typedTokens) {
+      const start = this.editor.document.positionAt(token.offset);
+      const end = this.editor.document.positionAt(token.offset + token.value.length);
       const range = new vscode.Range(start, end);
-      if (errorSet.has(ti)) {
+      if (errorSet.has(token.index)) {
         errorRanges.push(range);
       } else {
         okRanges.push(range);
       }
-      ti++;
     }
 
     this.editor.setDecorations(errorDecoration, errorRanges);
     this.editor.setDecorations(okDecoration, okRanges);
 
-    // Ghost text: show remaining target tokens after cursor
-    const remaining = targetTokens.slice(typedTokens.length).map(t => t.value).join(' ');
-    if (remaining) {
-      const end = this.editor.document.positionAt(typed.length);
-      this.editor.setDecorations(ghostDecoration, [{
-        range: new vscode.Range(end, end),
-        renderOptions: { after: { contentText: '  ' + remaining } }
-      }]);
-    } else {
-      this.editor.setDecorations(ghostDecoration, []);
+    // Ghost text: only show remainder of current line
+    const typedLines = typed.split('\n');
+    const currentLineIndex = typedLines.length - 1;
+    const targetLines = this.targetCode.split('\n');
+    const ghostDecorations: vscode.DecorationOptions[] = [];
+
+    if (currentLineIndex < targetLines.length) {
+      const typedCurrentLine = typedLines[currentLineIndex] ?? '';
+      const remaining = targetLines[currentLineIndex].slice(typedCurrentLine.length);
+      if (remaining) {
+        const pos = this.editor.document.lineAt(Math.min(currentLineIndex, this.editor.document.lineCount - 1)).range.end;
+        ghostDecorations.push({ range: new vscode.Range(pos, pos), renderOptions: { after: { contentText: remaining } } });
+      }
     }
+
+    this.editor.setDecorations(ghostDecoration, ghostDecorations);
+
+    // Show next line preview in status bar
+    const nextLine = targetLines[currentLineIndex + 1];
+    const nextLineHint = nextLine !== undefined ? `  ↵ ${nextLine.trim()}` : '';
 
     // Stats in status bar
     const done = typedTokens.length;
     const total = targetTokens.length;
     const errCount = errors.length;
-    this.statusBar.text = `CodeTyper: ${done}/${total} tokens | errors: ${errCount}`;
+    this.statusBar.text = `CodeTyper: ${done}/${total} tokens | errors: ${errCount}${nextLineHint}`;
 
     if (done >= total && errCount === 0) {
       this.statusBar.text = `CodeTyper: ✓ Done!`;
