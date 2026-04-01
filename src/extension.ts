@@ -108,30 +108,49 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function startSession(templatePath: string, context: vscode.ExtensionContext) {
-  const targetCode = fs.readFileSync(templatePath, 'utf8');
-  const ext = path.extname(templatePath).slice(1);
-  const langMap: Record<string, string> = {
-    cpp: 'cpp', py: 'python', java: 'java',
-    js: 'javascript', ts: 'typescript', c: 'c', go: 'go', rs: 'rust'
-  };
-  const lang = langMap[ext] ?? 'plaintext';
+  try {
+    const stat = fs.statSync(templatePath);
+    if (!stat.isFile()) {
+      vscode.window.showErrorMessage(`CodeTyper: "${templatePath}" is not a file.`);
+      return;
+    }
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (stat.size > MAX_SIZE) {
+      vscode.window.showErrorMessage(`CodeTyper: File too large (${(stat.size / 1024 / 1024).toFixed(1)}MB). Max is 10MB.`);
+      return;
+    }
+    const targetCode = fs.readFileSync(templatePath, 'utf8');
+    if (!targetCode.trim()) {
+      vscode.window.showErrorMessage('CodeTyper: Template file is empty.');
+      return;
+    }
 
-  const config = vscode.workspace.getConfiguration('codetyper');
-  const blindMode = config.get<string>('defaultMode') === 'blind';
-  const showPreview = config.get<boolean>('showPreview') ?? true;
+    const ext = path.extname(templatePath).slice(1);
+    const langMap: Record<string, string> = {
+      cpp: 'cpp', py: 'python', java: 'java',
+      js: 'javascript', ts: 'typescript', c: 'c', go: 'go', rs: 'rust'
+    };
+    const lang = langMap[ext] ?? 'plaintext';
 
-  const doc = await vscode.workspace.openTextDocument({ language: lang, content: '' });
-  const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+    const config = vscode.workspace.getConfiguration('codetyper');
+    const blindMode = config.get<string>('defaultMode') === 'blind';
+    const showPreview = config.get<boolean>('showPreview') ?? true;
 
-  activeSession?.dispose();
-  activeSession = new TypingSession(editor, targetCode, (wpm, errors, seconds) => {
-    saveRecord(context, {
-      template: path.basename(templatePath),
-      wpm, errors, seconds,
-      date: new Date().toISOString()
-    });
-  }, blindMode, showPreview, previewProvider);
-  lastTemplatePath = templatePath;
+    const doc = await vscode.workspace.openTextDocument({ language: lang, content: '' });
+    const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+
+    activeSession?.dispose();
+    activeSession = new TypingSession(editor, targetCode, (wpm, errors, seconds) => {
+      saveRecord(context, {
+        template: path.basename(templatePath),
+        wpm, errors, seconds,
+        date: new Date().toISOString()
+      });
+    }, blindMode, showPreview, previewProvider);
+    lastTemplatePath = templatePath;
+  } catch (err) {
+    vscode.window.showErrorMessage(`CodeTyper: ${err instanceof Error ? err.message : 'Unexpected error'}`);
+  }
 }
 
 export function deactivate() {
