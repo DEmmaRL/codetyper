@@ -202,9 +202,11 @@ export class TypingSession {
 
   private _wpm(typed: string): string {
     if (!this.startTime) { return '-- wpm'; }
-    const minutes = (Date.now() - this.startTime) / 60000;
-    const chars = typed.replace(/\s+/g, '').length;
-    return `${Math.round(chars / 5 / minutes)} wpm`;
+    const elapsed = Date.now() - this.startTime;
+    if (elapsed < 300) { return '-- wpm'; }
+    const minutes = Math.max(0.01, elapsed / 60000);
+    const wpm = Math.round(typed.replace(/\s+/g, '').length / 5 / minutes);
+    return isFinite(wpm) && wpm >= 0 ? `${wpm} wpm` : '-- wpm';
   }
 
   private _showSummary(typed: string, totalTokens: number, errors: number) {
