@@ -9,7 +9,14 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:codetyper.start",
+    "onCommand:codetyper.stop",
+    "onCommand:codetyper.restart",
+    "onCommand:codetyper.toggleBlind",
+    "onCommand:codetyper.togglePreview",
+    "onCommand:codetyper.history"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
