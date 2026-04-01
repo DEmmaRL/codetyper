@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { tokenize, compareTokens } from './tokenizer';
+import { PreviewProvider } from './previewProvider';
 
 // Decoration types
 const ghostDecoration = vscode.window.createTextEditorDecorationType({
@@ -20,11 +21,12 @@ export class TypingSession {
   private statusBar: vscode.StatusBarItem;
   private onComplete: (wpm: number, errors: number, seconds: number) => void;
 
+  /** Pre-computed target tokens — immutable for the session lifetime. */
+  private targetTokens: ReturnType<typeof tokenize>;
   /** Whether ghost text and color highlights are hidden (blind mode). */
   private blindMode: boolean;
-  /** The read-only preview editor showing the template, if open. */
-  private previewEditor: vscode.TextEditor | undefined;
-
+  /** Whether the preview panel is currently open. */
+  private previewOpen = false;
   /** Timestamp of the first keystroke; undefined until typing begins. */
   private startTime: number | undefined;
 
@@ -33,12 +35,16 @@ export class TypingSession {
     targetCode: string,
     onComplete: (wpm: number, errors: number, seconds: number) => void = () => {},
     blindMode = false,
-    showPreview = true
+    showPreview = true,
+    provider?: PreviewProvider
   ) {
     this.editor = editor;
     this.targetCode = targetCode;
     this.onComplete = onComplete;
     this.blindMode = blindMode;
+    this.targetTokens = tokenize(targetCode);
+
+    if (provider) { provider.setContent(targetCode); }
 
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     this.statusBar.show();
@@ -55,7 +61,7 @@ export class TypingSession {
       }),
       vscode.window.onDidChangeActiveTextEditor(active => {
         if (active?.document !== this.editor.document &&
-            active?.document !== this.previewEditor?.document) {
+            active?.document.uri.toString() !== PreviewProvider.uri.toString()) {
           this.dispose();
         }
       })
@@ -73,43 +79,42 @@ export class TypingSession {
 
   /** Toggle the preview panel on/off during an active session. */
   async togglePreview() {
-    if (this.previewEditor) {
-      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-      this.previewEditor = undefined;
-      await vscode.window.showTextDocument(this.editor.document);
+    if (this.previewOpen) {
+      await this._closePreview();
     } else {
       await this._openPreview();
-      await vscode.window.showTextDocument(this.editor.document);
     }
+    await vscode.window.showTextDocument(this.editor.document, vscode.ViewColumn.One);
   }
 
   private async _openPreview() {
-    const doc = await vscode.workspace.openTextDocument({
-      language: this.editor.document.languageId,
-      content: this.targetCode
-    });
-    // Open to the right, read-only
-    this.previewEditor = await vscode.window.showTextDocument(doc, {
+    // Use the virtual read-only scheme — no edits possible, no file created
+    const doc = await vscode.workspace.openTextDocument(PreviewProvider.uri);
+    await vscode.window.showTextDocument(doc, {
       viewColumn: vscode.ViewColumn.Beside,
       preserveFocus: true,
       preview: true
     });
-    // Mark as read-only via a setting override isn't possible directly,
-    // but we can prevent edits by listening and reverting
-    this.disposables.push(
-      vscode.workspace.onDidChangeTextDocument(e => {
-        if (e.document === this.previewEditor?.document) {
-          vscode.commands.executeCommand('undo');
+    this.previewOpen = true;
+  }
+
+  private async _closePreview() {
+    for (const tabGroup of vscode.window.tabGroups.all) {
+      for (const tab of tabGroup.tabs) {
+        if (tab.input instanceof vscode.TabInputText &&
+            tab.input.uri.toString() === PreviewProvider.uri.toString()) {
+          await vscode.window.tabGroups.close(tab);
         }
-      })
-    );
+      }
+    }
+    this.previewOpen = false;
   }
 
   private _updateDecorations() {
     const cursor = this.editor.selection.active;
     const cursorOffset = this.editor.document.offsetAt(cursor);
     const typed = this.editor.document.getText().slice(0, cursorOffset);
-    const targetTokens = tokenize(this.targetCode);
+    const targetTokens = this.targetTokens;
     const typedTokens = tokenize(typed);
     const errors = compareTokens(targetTokens, typedTokens);
     const errorSet = new Set(errors.map(e => e.tokenIndex));

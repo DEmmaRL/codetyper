@@ -3,11 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TypingSession } from './session';
 import { saveRecord, getHistory } from './history';
+import { PreviewProvider } from './previewProvider';
 
 let activeSession: TypingSession | undefined;
 let lastTemplatePath: string | undefined;
+export const previewProvider = new PreviewProvider();
 
 export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(PreviewProvider.scheme, previewProvider)
+  );
   context.subscriptions.push(
     vscode.commands.registerCommand('codetyper.start', async () => {
       // Resolve templates folder: user setting or bundled
@@ -115,7 +120,7 @@ async function startSession(templatePath: string, context: vscode.ExtensionConte
       wpm, errors, seconds,
       date: new Date().toISOString()
     });
-  }, blindMode, showPreview);
+  }, blindMode, showPreview, previewProvider);
   lastTemplatePath = templatePath;
 }
 
