@@ -46,7 +46,11 @@ export class TypingSession {
   }
 
   private _updateDecorations() {
-    const typed = this.editor.document.getText();
+    // Only compare text up to the cursor position to avoid auto-closed pairs
+    // (e.g. editor inserts ')' automatically when user types '(') causing false errors.
+    const cursor = this.editor.selection.active;
+    const cursorOffset = this.editor.document.offsetAt(cursor);
+    const typed = this.editor.document.getText().slice(0, cursorOffset);
     const targetTokens = tokenize(this.targetCode);
     const typedTokens = tokenize(typed);
     const errors = compareTokens(targetTokens, typedTokens);
