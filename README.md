@@ -16,11 +16,13 @@ MonkeyType for competitive programming templates. Practice typing C++ algorithms
 Comparison is **token-based**, not character-based. This means:
 
 - Spacing differences don't count as errors — `arr[ i ]` and `arr[i]` are identical
+- This applies everywhere, including member access: `cin.tie(0)` and `cin . tie( 0 )` are identical
 - The template is the source of truth for ambiguous tokens:
   - If the template has `>>`, you must type `>>` (not `> >`)
   - If the template has `> >`, you must type `> >` (not `>>`)
   - Same applies to `<<` vs `< <`
 - Comments in templates are ignored and not compared
+- Known limitation: spaces inside `#include` header paths (e.g. `<bits/stdc ++.h>`) are not caught as errors — write them exactly as in the template
 
 ## Templates
 
