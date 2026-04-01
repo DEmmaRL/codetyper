@@ -45,11 +45,15 @@ Supported file types: `.cpp`, `.c`, `.py`, `.java`, `.js`, `.ts`, `.go`, `.rs`
 | `CodeTyper: Start` | Pick a template and begin a session |
 | `CodeTyper: Restart` | Restart with the same template |
 | `CodeTyper: Stop` | End the current session |
+| `CodeTyper: Toggle Blind Mode` | Hide/show ghost text and highlights during a session |
+| `CodeTyper: Toggle Preview` | Open/close the template side panel during a session |
 | `CodeTyper: History` | View past session results |
 
 ## Settings
 
 | Setting | Default | Description |
 |---|---|---|
+| `codetyper.defaultMode` | `"ghost"` | Default typing mode: `"ghost"` shows hints, `"blind"` hides them |
+| `codetyper.showPreview` | `true` | Show the template in a side panel when a session starts |
 | `codetyper.templatesFolder` | `""` | Absolute path to your templates folder |
 | `codetyper.maxHistory` | `1000` | Maximum number of session records to keep |
