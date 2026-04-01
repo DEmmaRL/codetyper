@@ -18,13 +18,19 @@ export class TypingSession {
   private editor: vscode.TextEditor;
   private disposables: vscode.Disposable[] = [];
   private statusBar: vscode.StatusBarItem;
+  private onComplete: (wpm: number, errors: number, seconds: number) => void;
 
   /** Timestamp of the first keystroke; undefined until typing begins. */
   private startTime: number | undefined;
 
-  constructor(editor: vscode.TextEditor, targetCode: string) {
+  constructor(
+    editor: vscode.TextEditor,
+    targetCode: string,
+    onComplete: (wpm: number, errors: number, seconds: number) => void = () => {}
+  ) {
     this.editor = editor;
     this.targetCode = targetCode;
+    this.onComplete = onComplete;
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     this.statusBar.show();
 
@@ -150,6 +156,7 @@ export class TypingSession {
     vscode.window.showInformationMessage(
       `CodeTyper ✓  ${totalTokens} tokens | ${wpm} wpm | ${errors} errors | ${mins}:${secs}`
     );
+    this.onComplete(wpm, errors, Math.round(elapsed));
   }
 
   dispose() {

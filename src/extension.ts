@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TypingSession } from './session';
+import { saveRecord, getHistory } from './history';
 
 let activeSession: TypingSession | undefined;
 let lastTemplatePath: string | undefined;
@@ -38,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
         templatePath = path.join(folder, picked.label);
       }
 
-      await startSession(templatePath);
+      await startSession(templatePath, context);
     })
   );
 
@@ -48,7 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('CodeTyper: No previous session to restart.');
         return;
       }
-      await startSession(lastTemplatePath);
+      await startSession(lastTemplatePath, context);
     })
   );
 
@@ -59,9 +60,25 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage('CodeTyper: Session stopped.');
     })
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('codetyper.history', () => {
+      const history = getHistory(context);
+      if (history.length === 0) {
+        vscode.window.showInformationMessage('CodeTyper: No sessions recorded yet.');
+        return;
+      }
+      const items = history.map(r => ({
+        label: r.template,
+        description: `${r.wpm} wpm | ${r.errors} errors | ${Math.floor(r.seconds / 60)}:${(r.seconds % 60).toString().padStart(2, '0')}`,
+        detail: new Date(r.date).toLocaleString()
+      }));
+      vscode.window.showQuickPick(items, { placeHolder: 'Session history' });
+    })
+  );
 }
 
-async function startSession(templatePath: string) {
+async function startSession(templatePath: string, context: vscode.ExtensionContext) {
   const targetCode = fs.readFileSync(templatePath, 'utf8');
   const ext = path.extname(templatePath).slice(1);
   const langMap: Record<string, string> = {
@@ -74,7 +91,13 @@ async function startSession(templatePath: string) {
   const editor = await vscode.window.showTextDocument(doc);
 
   activeSession?.dispose();
-  activeSession = new TypingSession(editor, targetCode);
+  activeSession = new TypingSession(editor, targetCode, (wpm, errors, seconds) => {
+    saveRecord(context, {
+      template: path.basename(templatePath),
+      wpm, errors, seconds,
+      date: new Date().toISOString()
+    });
+  });
   lastTemplatePath = templatePath;
 }
 

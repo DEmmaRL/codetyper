@@ -24,11 +24,20 @@
       {
         "command": "codetyper.restart",
         "title": "CodeTyper: Restart"
+      },
+      {
+        "command": "codetyper.history",
+        "title": "CodeTyper: History"
       }
     ],
     "configuration": {
       "title": "CodeTyper",
       "properties": {
+        "codetyper.maxHistory": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum number of session records to keep in history"
+        },
         "codetyper.templatesFolder": {
           "type": "string",
           "default": "",
