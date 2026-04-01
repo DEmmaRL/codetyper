@@ -11,7 +11,8 @@ export interface SessionRecord {
 const STORAGE_KEY = 'codetyper.history';
 
 export function saveRecord(context: vscode.ExtensionContext, record: SessionRecord) {
-  const max = vscode.workspace.getConfiguration('codetyper').get<number>('maxHistory') ?? 1000;
+  const raw = vscode.workspace.getConfiguration('codetyper').get<number>('maxHistory') ?? 1000;
+  const max = Math.max(1, Math.min(10000, Math.floor(raw)));
   const history = getHistory(context);
   history.unshift(record);
   context.globalState.update(STORAGE_KEY, history.slice(0, max));
