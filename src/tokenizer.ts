@@ -32,7 +32,7 @@ export interface DiffResult {
 // Regex groups listed in match-priority order (see module doc above).
 // NOTE: Not using a module-level /g regex to avoid lastIndex state bugs between calls.
 const CPP_TOKEN_SOURCE =
-  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[a-zA-Z_]\w*|\d+(?:\.\d+)?|->|::|<<|>>|<=|>=|==|!=|\+\+|--|&&|\|\||[+\-*/%&|^~<>=!?:;,.()\[\]{}]/;
+  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[a-zA-Z_]\w*|\d+(?:\.\d+)?|->|::|<<|>>|<=|>=|==|!=|\+\+|--|&&|\|\||[+\-*/%&|^~<>=!?:;,.()\[\]{}#]/;
 
 /**
  * Tokenizes C++ source code into an ordered array of tokens.

@@ -80,6 +80,12 @@ suite('Tokenizer', () => {
       assert.deepStrictEqual(first, second);
     });
 
+    test('preprocessor directives keep the # token', () => {
+      assert.deepStrictEqual(vals('#include <bits/stdc++.h>'),
+        ['#', 'include', '<', 'bits', '/', 'stdc', '++', '.', 'h', '>']);
+      assert.deepStrictEqual(vals('#define X 1'), ['#', 'define', 'X', '1']);
+    });
+
     test('real C++ snippet tokenizes correctly', () => {
       assert.deepStrictEqual(
         vals('dist[src] = 0;'),
