@@ -30,8 +30,9 @@ export interface DiffResult {
 }
 
 // Regex groups listed in match-priority order (see module doc above).
-const CPP_TOKEN_RE =
-  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[a-zA-Z_]\w*|\d+(?:\.\d+)?|->|::|<<|>>|<=|>=|==|!=|\+\+|--|&&|\|\||[+\-*/%&|^~<>=!?:;,.()\[\]{}]/g;
+// NOTE: Not using a module-level /g regex to avoid lastIndex state bugs between calls.
+const CPP_TOKEN_SOURCE =
+  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[a-zA-Z_]\w*|\d+(?:\.\d+)?|->|::|<<|>>|<=|>=|==|!=|\+\+|--|&&|\|\||[+\-*/%&|^~<>=!?:;,.()\[\]{}]/;
 
 /**
  * Tokenizes C++ source code into an ordered array of tokens.
@@ -39,9 +40,11 @@ const CPP_TOKEN_RE =
  */
 export function tokenize(code: string): Token[] {
   const tokens: Token[] = [];
+  // Create a fresh regex each call to avoid shared lastIndex state
+  const re = new RegExp(CPP_TOKEN_SOURCE.source, 'g');
   let match: RegExpExecArray | null;
   let index = 0;
-  while ((match = CPP_TOKEN_RE.exec(code)) !== null) {
+  while ((match = re.exec(code)) !== null) {
     // Skip comments (groups 1 & 2 in the alternation)
     if (match[0].startsWith('//') || match[0].startsWith('/*')) { continue; }
     tokens.push({ value: match[0], index: index++, offset: match.index });
