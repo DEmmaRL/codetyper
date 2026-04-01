@@ -20,6 +20,10 @@
       {
         "command": "codetyper.stop",
         "title": "CodeTyper: Stop"
+      },
+      {
+        "command": "codetyper.restart",
+        "title": "CodeTyper: Restart"
       }
     ],
     "configuration": {

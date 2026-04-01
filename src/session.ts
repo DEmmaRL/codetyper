@@ -19,20 +19,27 @@ export class TypingSession {
   private disposables: vscode.Disposable[] = [];
   private statusBar: vscode.StatusBarItem;
 
+  /** Timestamp of the first keystroke; undefined until typing begins. */
+  private startTime: number | undefined;
+
   constructor(editor: vscode.TextEditor, targetCode: string) {
     this.editor = editor;
     this.targetCode = targetCode;
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     this.statusBar.show();
 
-    // Show initial ghost text
     this._updateDecorations();
 
-    // Listen for document changes
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument(e => {
         if (e.document === this.editor.document) {
           this._updateDecorations();
+        }
+      }),
+      // Stop session if user switches away from the session document
+      vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor?.document !== this.editor.document) {
+          this.dispose();
         }
       })
     );
@@ -48,7 +55,6 @@ export class TypingSession {
     const errorRanges: vscode.Range[] = [];
     const okRanges: vscode.Range[] = [];
 
-    // Map typed tokens back to ranges using the same tokenizer (keeps indices in sync)
     for (const token of typedTokens) {
       const start = this.editor.document.positionAt(token.offset);
       const end = this.editor.document.positionAt(token.offset + token.value.length);
@@ -64,11 +70,8 @@ export class TypingSession {
     this.editor.setDecorations(okDecoration, okRanges);
 
     // Ghost text: token-aware — show remaining target content from the current/next untyped token.
-    // If the user is mid-token, show the remainder of that token + rest of the line.
-    // If they just finished a token (or haven't started), show from the next token onward.
     const ghostDecorations: vscode.DecorationOptions[] = [];
 
-    // Determine if the last typed token is a partial match of the corresponding target token
     const lastTypedToken = typedTokens[typedTokens.length - 1];
     const correspondingTarget = targetTokens[typedTokens.length - 1];
     const isMidToken = lastTypedToken &&
@@ -78,11 +81,10 @@ export class TypingSession {
 
     const ghostFromTokenIdx = isMidToken ? typedTokens.length - 1 : typedTokens.length;
     const ghostFromCharOffset = isMidToken
-      ? correspondingTarget.offset + lastTypedToken.value.length  // skip already-typed part
+      ? correspondingTarget.offset + lastTypedToken.value.length
       : targetTokens[ghostFromTokenIdx]?.offset;
 
     if (ghostFromCharOffset !== undefined && targetTokens[ghostFromTokenIdx]) {
-      // Find which line in the target this offset lives on
       const targetLines = this.targetCode.split('\n');
       let charCount = 0;
       let targetLineIdx = 0;
@@ -91,12 +93,9 @@ export class TypingSession {
           targetLineIdx = i;
           break;
         }
-        charCount += targetLines[i].length + 1; // +1 for \n
+        charCount += targetLines[i].length + 1;
       }
-
-      const lineStart = charCount;
-      const remaining = this.targetCode.slice(ghostFromCharOffset, lineStart + targetLines[targetLineIdx].length);
-
+      const remaining = this.targetCode.slice(ghostFromCharOffset, charCount + targetLines[targetLineIdx].length);
       if (remaining.trim()) {
         const docLine = this.editor.document.lineAt(this.editor.document.lineCount - 1).lineNumber;
         const pos = this.editor.document.lineAt(docLine).range.end;
@@ -106,23 +105,47 @@ export class TypingSession {
 
     this.editor.setDecorations(ghostDecoration, ghostDecorations);
 
-    // Show next line preview in status bar
+    const done = typedTokens.length;
+    const total = targetTokens.length;
+    const errCount = errors.length;
+
+    // Start timer on first keystroke
+    if (done > 0 && this.startTime === undefined) {
+      this.startTime = Date.now();
+    }
+
     const targetLines = this.targetCode.split('\n');
     const currentLineIndex = typed.split('\n').length - 1;
     const nextLine = targetLines[currentLineIndex + 1];
     const nextLineHint = nextLine !== undefined ? `  ↵ ${nextLine.trim()}` : '';
 
-    // Stats in status bar
-    const done = typedTokens.length;
-    const total = targetTokens.length;
-    const errCount = errors.length;
-    this.statusBar.text = `CodeTyper: ${done}/${total} tokens | errors: ${errCount}${nextLineHint}`;
+    this.statusBar.text = `CodeTyper: ${done}/${total} tokens | errors: ${errCount} | ${this._wpm(typed)}${nextLineHint}`;
 
     if (done >= total && errCount === 0) {
-      this.statusBar.text = `CodeTyper: ✓ Done!`;
-      vscode.window.showInformationMessage('CodeTyper: Template complete!');
+      this._showSummary(typed, done, errCount);
       this.dispose();
     }
+  }
+
+  /** Returns a formatted WPM string, or '-- wpm' if not started yet. */
+  private _wpm(typed: string): string {
+    if (!this.startTime) { return '-- wpm'; }
+    const minutes = (Date.now() - this.startTime) / 60000;
+    // Standard WPM: non-whitespace chars typed / 5 / minutes
+    const chars = typed.replace(/\s+/g, '').length;
+    return `${Math.round(chars / 5 / minutes)} wpm`;
+  }
+
+  private _showSummary(typed: string, totalTokens: number, errors: number) {
+    if (!this.startTime) { return; }
+    const elapsed = (Date.now() - this.startTime) / 1000;
+    const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
+    const chars = typed.replace(/\s+/g, '').length;
+    const wpm = Math.round(chars / 5 / (elapsed / 60));
+    vscode.window.showInformationMessage(
+      `CodeTyper ✓  ${totalTokens} tokens | ${wpm} wpm | ${errors} errors | ${mins}:${secs}`
+    );
   }
 
   dispose() {
