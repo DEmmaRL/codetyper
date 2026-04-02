@@ -2,16 +2,16 @@ import * as vscode from 'vscode';
 import { tokenize, compareTokens } from './tokenizer';
 import { PreviewProvider } from './previewProvider';
 
-// Decoration types
+// Decoration types — use ThemeColor so they adapt to light/dark themes
 const ghostDecoration = vscode.window.createTextEditorDecorationType({
-  after: { color: '#555555', fontStyle: 'italic' }
+  after: { color: new vscode.ThemeColor('editorLineNumber.foreground'), fontStyle: 'italic' }
 });
 const errorDecoration = vscode.window.createTextEditorDecorationType({
-  textDecoration: 'underline wavy red',
-  color: '#f44747'
+  textDecoration: 'underline wavy',
+  color: new vscode.ThemeColor('editorError.foreground')
 });
 const okDecoration = vscode.window.createTextEditorDecorationType({
-  color: '#4ec9b0'
+  color: new vscode.ThemeColor('terminal.ansiGreen')
 });
 
 export class TypingSession {
@@ -190,7 +190,7 @@ export class TypingSession {
   private _updateStatusBar(typed: string, done: number, total: number, errCount: number) {
     const targetLines = this.targetCode.split('\n');
     const nextLine = !this.blindMode ? targetLines[typed.split('\n').length] : undefined;
-    const nextLineHint = nextLine !== undefined ? `  -> ${nextLine.trim()}` : '';
+    const nextLineHint = nextLine?.trim() ? `  -> ${nextLine.trim()}` : '';
     const modeIcon = this.blindMode ? ' [blind]' : '';
     this.statusBar.text = `CodeTyper${modeIcon}: ${done}/${total} tokens | errors: ${errCount} | ${this._wpm(typed)}${nextLineHint}`;
   }

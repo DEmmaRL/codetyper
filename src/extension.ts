@@ -91,18 +91,23 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('codetyper.history', () => {
+    vscode.commands.registerCommand('codetyper.history', async () => {
       const history = getHistory(context);
       if (history.length === 0) {
         vscode.window.showInformationMessage('CodeTyper: No sessions recorded yet.');
         return;
       }
-      const items = history.map(r => ({
+      interface HistoryItem extends vscode.QuickPickItem { templatePath?: string; }
+      const items: HistoryItem[] = history.map(r => ({
         label: r.template,
         description: `${r.wpm} wpm | ${r.errors} errors | ${Math.floor(r.seconds / 60)}:${(r.seconds % 60).toString().padStart(2, '0')}`,
-        detail: new Date(r.date).toLocaleString()
+        detail: new Date(r.date).toLocaleString(),
+        templatePath: r.templatePath
       }));
-      vscode.window.showQuickPick(items, { placeHolder: 'Session history' });
+      const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Pick a session to replay' });
+      if (picked?.templatePath) {
+        await startSession(picked.templatePath, context);
+      }
     })
   );
 }
@@ -143,6 +148,7 @@ async function startSession(templatePath: string, context: vscode.ExtensionConte
     activeSession = new TypingSession(editor, targetCode, (wpm, errors, seconds) => {
       saveRecord(context, {
         template: path.basename(templatePath),
+        templatePath,
         wpm, errors, seconds,
         date: new Date().toISOString()
       });
