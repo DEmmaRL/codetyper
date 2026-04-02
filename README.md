@@ -1,6 +1,8 @@
 # CodeTyper
 
-MonkeyType for competitive programming templates. Practice typing C++ algorithms until they're muscle memory.
+Practice typing your competitive programming templates and algorithms. The goal is to reduce the friction of copying from a reference sheet during a contest. So when you are copying your template or a large algorithm implementation, you spend less time transcribing and more time thinking about the actual solution.
+
+> **Disclaimer:** There's no substitute for solving real problems. Typing practice is a complement, not a replacement, the best way to internalize an algorithm is still to use it under contest conditions.
 
 ## How it works
 
@@ -38,6 +40,8 @@ Or use **Browse...** in the template picker to load any file directly.
 
 Supported file types: `.cpp`, `.c`, `.py`, `.java`, `.js`, `.ts`, `.go`, `.rs`
 
+> **Note:** The tokenizer is currently optimized for C++ syntax. Other languages can be loaded and practiced, but token comparison may be less accurate. Support for Python and other languages is planned.
+
 ## Commands
 
 | Command | Description |
@@ -45,9 +49,10 @@ Supported file types: `.cpp`, `.c`, `.py`, `.java`, `.js`, `.ts`, `.go`, `.rs`
 | `CodeTyper: Start` | Pick a template and begin a session |
 | `CodeTyper: Restart` | Restart with the same template |
 | `CodeTyper: Stop` | End the current session |
+| `CodeTyper: Set Templates Folder` | Pick a folder to use as your templates source |
 | `CodeTyper: Toggle Blind Mode` | Hide/show ghost text and highlights during a session |
 | `CodeTyper: Toggle Preview` | Open/close the template side panel during a session |
-| `CodeTyper: History` | View past session results |
+| `CodeTyper: History` | View past sessions and replay any of them |
 
 ## Settings
 
