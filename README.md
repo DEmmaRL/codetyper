@@ -1,8 +1,20 @@
 # CodeTyper
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/demmarl.codetyper?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=demmarl.codetyper)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/demmarl.codetyper)](https://marketplace.visualstudio.com/items?itemName=demmarl.codetyper)
+
 Practice typing your competitive programming templates and algorithms. The goal is to reduce the friction of copying from a reference sheet during a contest. So when you are copying your template, debug or even a large algorithm implementation, you spend less time transcribing and more time thinking about the actual solution.
 
 > There's no substitute for solving real problems. Typing practice is a complement, not a replacement, the best way to internalize an algorithm is still to use it under contest conditions.
+
+## Install
+
+- Marketplace: https://marketplace.visualstudio.com/items?itemName=demmarl.codetyper
+- VS Code CLI:
+
+```bash
+code --install-extension demmarl.codetyper
+```
 
 ## How it works
 
