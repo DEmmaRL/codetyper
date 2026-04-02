@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TypingSession } from './session';
+import { tokenize } from './tokenizer';
 import { saveRecord, getHistory } from './history';
 import { PreviewProvider } from './previewProvider';
 
@@ -174,6 +175,12 @@ async function startSession(templatePath: string, context: vscode.ExtensionConte
     const targetCode = fs.readFileSync(templatePath, 'utf8');
     if (!targetCode.trim()) {
       vscode.window.showErrorMessage('CodeTyper: Template file is empty.');
+      return;
+    }
+    if (tokenize(targetCode).length === 0) {
+      vscode.window.showErrorMessage(
+        'CodeTyper: Template has no comparable tokens (for example, only comments).'
+      );
       return;
     }
 
