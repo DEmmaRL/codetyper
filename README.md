@@ -1,8 +1,8 @@
 # CodeTyper
 
-Practice typing your competitive programming templates and algorithms. The goal is to reduce the friction of copying from a reference sheet during a contest. So when you are copying your template or a large algorithm implementation, you spend less time transcribing and more time thinking about the actual solution.
+Practice typing your competitive programming templates and algorithms. The goal is to reduce the friction of copying from a reference sheet during a contest. So when you are copying your template, debug or even a large algorithm implementation, you spend less time transcribing and more time thinking about the actual solution.
 
-> **Disclaimer:** There's no substitute for solving real problems. Typing practice is a complement, not a replacement, the best way to internalize an algorithm is still to use it under contest conditions.
+> There's no substitute for solving real problems. Typing practice is a complement, not a replacement, the best way to internalize an algorithm is still to use it under contest conditions.
 
 ## How it works
 
