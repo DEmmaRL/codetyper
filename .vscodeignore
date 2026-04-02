@@ -9,3 +9,7 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+AUDIT.md
+SOLUTIONS.md
+SUMMARY.md
+pnpm-lock.yaml

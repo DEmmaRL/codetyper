@@ -1,13 +1,20 @@
 {
   "name": "codetyper",
-  "displayName": "codetyper",
-  "description": "MonkeyType for code templates",
+  "displayName": "CodeTyper",
+  "description": "Practice typing your competitive programming templates to reduce friction during contests.",
   "version": "0.0.1",
+  "publisher": "demmarl",
+  "icon": "assets/logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DEmmaRL/codetyper"
+  },
+  "keywords": ["competitive programming", "typing", "templates", "icpc", "algorithms"],
   "engines": {
     "vscode": "^1.110.0"
   },
   "categories": [
-    "Other"
+    "Education", "Other"
   ],
   "main": "./out/extension.js",
   "contributes": {
