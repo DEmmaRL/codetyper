@@ -10,7 +10,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:codetyper.start",
+    "onCommand:codetyper.setTemplatesFolder",
     "onCommand:codetyper.stop",
     "onCommand:codetyper.restart",
     "onCommand:codetyper.toggleBlind",
@@ -21,8 +21,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "codetyper.start",
-        "title": "CodeTyper: Start"
+        "command": "codetyper.setTemplatesFolder",
+        "title": "CodeTyper: Set Templates Folder"
       },
       {
         "command": "codetyper.stop",
