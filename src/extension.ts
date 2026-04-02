@@ -14,21 +14,54 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider(PreviewProvider.scheme, previewProvider)
   );
   context.subscriptions.push(
+    vscode.commands.registerCommand('codetyper.setTemplatesFolder', async () => {
+      await pickTemplatesFolder();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('codetyper.start', async () => {
-      // Resolve templates folder: user setting or bundled
+      // Resolve templates folder: user setting or prompt on first use
       let folder = vscode.workspace.getConfiguration('codetyper').get<string>('templatesFolder');
-      if (folder) {
-        try {
-          if (!fs.statSync(folder).isDirectory()) {
-            vscode.window.showErrorMessage(`CodeTyper: templatesFolder "${folder}" is not a directory.`);
-            folder = path.join(context.extensionPath, 'templates');
-          }
-        } catch {
-          vscode.window.showWarningMessage(`CodeTyper: templatesFolder "${folder}" not found. Using defaults.`);
+      if (!folder) {
+        const choice = await vscode.window.showInformationMessage(
+          'CodeTyper: No templates folder set. Pick one to get started.',
+          'Choose Folder', 'Use Built-in Templates'
+        );
+        if (choice === 'Choose Folder') {
+          folder = await pickTemplatesFolder();
+          if (!folder) { return; }
+        } else if (choice === 'Use Built-in Templates') {
           folder = path.join(context.extensionPath, 'templates');
+        } else {
+          return; // dismissed
         }
       } else {
-        folder = path.join(context.extensionPath, 'templates');
+        try {
+          if (!fs.statSync(folder).isDirectory()) {
+            const choice = await vscode.window.showErrorMessage(
+              `CodeTyper: "${folder}" is not a directory.`,
+              'Choose New Folder', 'Use Built-in Templates'
+            );
+            if (choice === 'Choose New Folder') {
+              folder = await pickTemplatesFolder();
+              if (!folder) { return; }
+            } else {
+              folder = path.join(context.extensionPath, 'templates');
+            }
+          }
+        } catch {
+          const choice = await vscode.window.showWarningMessage(
+            `CodeTyper: Templates folder "${folder}" no longer exists.`,
+            'Choose New Folder', 'Use Built-in Templates'
+          );
+          if (choice === 'Choose New Folder') {
+            folder = await pickTemplatesFolder();
+            if (!folder) { return; }
+          } else {
+            folder = path.join(context.extensionPath, 'templates');
+          }
+        }
       }
 
       const files = fs.readdirSync(folder).filter(f => /\.(cpp|py|java|js|ts|c|go|rs)$/.test(f));
@@ -110,6 +143,20 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
+}
+
+async function pickTemplatesFolder(): Promise<string | undefined> {
+  const uris = await vscode.window.showOpenDialog({
+    canSelectFiles: false,
+    canSelectFolders: true,
+    canSelectMany: false,
+    openLabel: 'Select Templates Folder'
+  });
+  if (!uris || uris.length === 0) { return undefined; }
+  const folder = uris[0].fsPath;
+  await vscode.workspace.getConfiguration('codetyper').update('templatesFolder', folder, vscode.ConfigurationTarget.Global);
+  vscode.window.showInformationMessage(`CodeTyper: Templates folder set to "${folder}"`);
+  return folder;
 }
 
 async function startSession(templatePath: string, context: vscode.ExtensionContext) {
