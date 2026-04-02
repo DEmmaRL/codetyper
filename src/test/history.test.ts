@@ -15,7 +15,7 @@ function makeCtx(): vscode.ExtensionContext {
 }
 
 function record(template: string): SessionRecord {
-  return { template, wpm: 60, errors: 0, seconds: 30, date: new Date().toISOString() };
+  return { template, templatePath: `/tmp/${template}`, wpm: 60, errors: 0, seconds: 30, date: new Date().toISOString() };
 }
 
 async function withMaxHistory(value: number, fn: (ctx: vscode.ExtensionContext) => void) {

@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 
 export interface SessionRecord {
-  template: string;  // basename of the template file
+  template: string;       // basename of the template file
+  templatePath?: string;  // full path for restarting (optional for backwards compat)
   wpm: number;
   errors: number;
   seconds: number;
-  date: string;      // ISO string
+  date: string;           // ISO string
 }
 
 const STORAGE_KEY = 'codetyper.history';
