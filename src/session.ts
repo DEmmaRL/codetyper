@@ -190,7 +190,7 @@ export class TypingSession {
   private _updateStatusBar(typed: string, done: number, total: number, errCount: number) {
     const targetLines = this.targetCode.split('\n');
     const nextLine = !this.blindMode ? targetLines[typed.split('\n').length] : undefined;
-    const nextLineHint = nextLine !== undefined ? `  -> ${nextLine.trim()}` : '';
+    const nextLineHint = nextLine?.trim() ? `  -> ${nextLine.trim()}` : '';
     const modeIcon = this.blindMode ? ' [blind]' : '';
     this.statusBar.text = `CodeTyper${modeIcon}: ${done}/${total} tokens | errors: ${errCount} | ${this._wpm(typed)}${nextLineHint}`;
   }
