@@ -9,17 +9,13 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:codetyper.setTemplatesFolder",
-    "onCommand:codetyper.stop",
-    "onCommand:codetyper.restart",
-    "onCommand:codetyper.toggleBlind",
-    "onCommand:codetyper.togglePreview",
-    "onCommand:codetyper.history"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "codetyper.start",
+        "title": "CodeTyper: Start"
+      },
       {
         "command": "codetyper.setTemplatesFolder",
         "title": "CodeTyper: Set Templates Folder"
